@@ -81,7 +81,7 @@
     var now = Date.now();
     if (now - lastAdvance < 1200) return;
     lastAdvance = now;
-    var btn = document.querySelector('[data-e2e="arrow-right"], button[aria-label*="next" i]');
+    var btn = null; try { btn = document.querySelector('[data-e2e="arrow-right"], button[aria-label*="next" i]'); } catch (eSel) { /* old Chromium: no [attr i] */ }
     if (btn) { btn.click(); return; }
     fireKey('ArrowDown', 'ArrowDown');
     var v = currentVideo();
@@ -93,7 +93,7 @@
   }
 
   function prevVideo() {
-    var btn = document.querySelector('[data-e2e="arrow-left"], button[aria-label*="previous" i]');
+    var btn = null; try { btn = document.querySelector('[data-e2e="arrow-left"], button[aria-label*="previous" i]'); } catch (eSel) { /* old Chromium */ }
     if (btn) { btn.click(); return; }
     fireKey('ArrowUp', 'ArrowUp');
   }
@@ -237,6 +237,7 @@
       var cls = String(el.className || '') + ' ' + (el.getAttribute('data-e2e') || '');
       // generic class matches (Overlay/Banner/Modal) must also look like a prompt, to spare the feed UI
       if (!POPUP_HINT_RE.test(text + ' ' + cls)) continue;
+      if (el.querySelector('[data-e2e*="recommend-list"]')) continue;
       if (el.querySelector('video, [data-e2e*="comment" i], [data-e2e*="search" i], input, textarea')) continue;
       if (inQrArea(el)) continue;
       el.setAttribute('data-tvkilled', '1');
