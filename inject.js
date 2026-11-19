@@ -131,7 +131,7 @@
     403: function () { autoScroll = !autoScroll; toast('Auto-scroll ' + (autoScroll ? 'ON' : 'OFF')); }, // Red
     10009: function () { // Back: history, else leave the app
       if (history.length > 1) { history.back(); return; }
-      try { tizen.application.getCurrentApplication().exit(); } catch (e) { window.close(); }
+      try { tizen.application.getCurrentApplication().exit(); } catch (e) { try { window.close(); } catch (e2) { /* nothing left to do */ } }
     }
   };
 
