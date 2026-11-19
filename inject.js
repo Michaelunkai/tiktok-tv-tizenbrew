@@ -44,9 +44,31 @@
   }
 
   function fireKey(key, code) {
-    var opts = { key: key, code: code, keyCode: code === 'ArrowDown' ? 40 : 38, which: code === 'ArrowDown' ? 40 : 38, bubbles: true, cancelable: true };
-    document.dispatchEvent(new KeyboardEvent('keydown', opts));
-    document.dispatchEvent(new KeyboardEvent('keyup', opts));
+    var kc = code === 'ArrowDown' ? 40 : 38;
+    var types = ['keydown', 'keyup'];
+    for (var i = 0; i < types.length; i++) {
+      var ev;
+      try { ev = new KeyboardEvent(types[i], { key: key, code: code, bubbles: true, cancelable: true }); }
+      catch (e) { ev = document.createEvent('Event'); ev.initEvent(types[i], true, true); }
+      try {
+        Object.defineProperty(ev, 'keyCode', { get: function () { return kc; } });
+        Object.defineProperty(ev, 'which', { get: function () { return kc; } });
+      } catch (e2) { /* read-only */ }
+      document.dispatchEvent(ev);
+    }
+  }
+
+  function closestEl(el, sel) {
+    var m = el.matches || el.webkitMatchesSelector || el.msMatchesSelector;
+    while (el && el.nodeType === 1) {
+      if (m && m.call(el, sel)) return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function safePlay(v) {
+    try { var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (e) { /* blocked */ }
   }
 
   function nextVideo() {
@@ -58,7 +80,7 @@
     fireKey('ArrowDown', 'ArrowDown');
     var v = currentVideo();
     if (v) {
-      var c = v.closest('[data-e2e="recommend-list-item-container"]') || v.parentElement;
+      var c = closestEl(v, '[data-e2e="recommend-list-item-container"]') || v.parentElement;
       var n = c && c.nextElementSibling;
       if (n && n.scrollIntoView) n.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -73,7 +95,7 @@
   function togglePlay() {
     var v = currentVideo();
     if (!v) return;
-    if (v.paused) { delete v.dataset.userPaused; v.play(); toast('Play'); } else { v.dataset.userPaused = '1'; v.pause(); toast('Pause'); }
+    if (v.paused) { v.removeAttribute('data-user-paused'); safePlay(v); toast('Play'); } else { v.setAttribute('data-user-paused', '1'); v.pause(); toast('Pause'); }
   }
 
   function seek(delta) {
@@ -153,8 +175,11 @@
       if (!window.__qrToast) { window.__qrToast = true; toast('Scan the QR with the TikTok app on your phone: Profile, then the scan icon'); }
       return;
     }
-    if (loggedOut() && !sessionStorage.getItem('qrRedirected')) {
-      sessionStorage.setItem('qrRedirected', '1');
+    var done = false;
+    try { done = !!sessionStorage.getItem('qrRedirected'); } catch (e) { done = !!window.__qrRedirected; }
+    if (loggedOut() && !done) {
+      window.__qrRedirected = true;
+      try { sessionStorage.setItem('qrRedirected', '1'); } catch (e) { /* storage blocked */ }
       location.href = 'https://www.tiktok.com/login/qrcode';
     }
   }, 1500);
@@ -162,6 +187,6 @@
   // keep sound on and start playing if the TV browser blocks autoplay
   setInterval(function () {
     var v = currentVideo();
-    if (v && v.paused && !v.dataset.userPaused && v.readyState > 2) { v.play().catch(function () {}); }
+    if (v && v.paused && !v.getAttribute('data-user-paused') && v.readyState > 2) { safePlay(v); }
   }, 2000);
 })();
