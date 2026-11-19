@@ -9,7 +9,7 @@
   var lastAdvance = 0;
 
   // ---- sponsored items ----
-  var css = '[data-e2e*="ad" i], [class*="Sponsored" i], [class*="AdBadge" i] { display: none !important; }' +
+  var css = '[data-e2e="ad"], [data-e2e^="ad-"], [data-e2e*="-ad-"], [data-e2e*="sponsor" i], [class*="Sponsored" i], [class*="AdBadge" i] { display: none !important; }' +
             '#tvtoast{position:fixed;top:24px;right:24px;z-index:2147483647;background:rgba(0,0,0,.8);color:#fff;' +
             'font:600 26px sans-serif;padding:12px 20px;border-radius:12px;display:none}' +
             'a:focus,button:focus,[role="button"]:focus,[tabindex]:focus,input:focus{outline:4px solid #25f4ee !important;outline-offset:2px}';
@@ -129,14 +129,21 @@
     412: function () { seek(-10); },  // Rewind
     417: function () { seek(10); },   // Fast forward
     403: function () { autoScroll = !autoScroll; toast('Auto-scroll ' + (autoScroll ? 'ON' : 'OFF')); }, // Red
-    10009: function () { history.back(); } // Back
+    10009: function () { // Back: history, else leave the app
+      if (history.length > 1) { history.back(); return; }
+      try { tizen.application.getCurrentApplication().exit(); } catch (e) { window.close(); }
+    }
   };
 
   document.addEventListener('keydown', function (e) {
     var fn = KEYMAP[e.keyCode];
     if (!fn) return;
     var tag = (e.target && e.target.tagName) || '';
-    if (/^(INPUT|TEXTAREA)$/.test(tag) && e.keyCode !== 10009) return; // let typing work (search / login)
+    if (e.keyCode !== 10009) {
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (e.target && e.target.isContentEditable)) return; // typing
+      if (onLoginPage()) return; // native focus navigation on the QR/login page
+      if (e.keyCode === 13 && /^(BUTTON|A)$/.test(tag)) return; // OK activates focused control
+    }
     e.preventDefault();
     e.stopPropagation();
     fn();
