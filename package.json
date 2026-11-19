@@ -1,6 +1,6 @@
 {
   "name": "tiktok-tv-tizenbrew",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "TikTok web on Samsung TV through TizenBrew, with sponsored items hidden",
   "main": "inject.js",
   "packageType": "mods",

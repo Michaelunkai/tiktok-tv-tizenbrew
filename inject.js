@@ -197,6 +197,35 @@
   }, true);
 
   // ---- remote control ----
+  // ---- always-visible diagnostic HUD (passive: never touches keys) ----
+  var hudLast = { code: null, n: 0 };
+  var hudBox = null;
+  function hudRender() {
+    try {
+      var p = document.body || document.documentElement;
+      if (!p) return;
+      if (!hudBox || !hudBox.parentNode) {
+        hudBox = document.getElementById('tvhud');
+        if (!hudBox) {
+          hudBox = document.createElement('div');
+          hudBox.id = 'tvhud';
+          hudBox.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2147483647;background:rgba(0,0,0,.85);color:#fff;' +
+            'font:600 20px/1.3 monospace;white-space:pre;padding:8px 14px;border-radius:10px;pointer-events:none';
+          p.appendChild(hudBox);
+        }
+      }
+      var v = null, lo = false;
+      try { v = currentVideo(); } catch (e1) { v = null; }
+      try { lo = loggedOut(); } catch (e2) { lo = false; }
+      hudBox.textContent = 'TV v1.3.3 | key ' + (hudLast.code === null ? '-' : hudLast.code + ' x' + hudLast.n) +
+        ' | scroll ' + (autoScroll ? 'ON' : 'OFF') + ' | video ' + (v ? 'yes' : 'no') + ' | ' + (lo ? 'logged out' : 'in') + ' | ' + location.pathname;
+    } catch (eHud) { /* never break the page */ }
+  }
+  try {
+    window.addEventListener('keydown', function (e) { hudLast.code = e.keyCode; hudLast.n++; hudRender(); }, true);
+    setInterval(hudRender, 700);
+  } catch (eHud2) { /* ignore */ }
+
   var KEYMAP = {
     38: prevVideo,                    // Up
     40: nextVideo,                    // Down
@@ -247,7 +276,7 @@
     }
   } catch (e) { /* not on a TV */ }
 
-  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', function () { toast('TikTok TV v1.3.2 ready'); }); } else { toast('TikTok TV v1.3.1 ready'); }
+  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', function () { toast('TikTok TV v1.3.3 ready'); }); } else { toast('TikTok TV v1.3.1 ready'); }
 
   if (document.documentElement) {
     addStyle();
