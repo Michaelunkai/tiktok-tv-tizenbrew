@@ -46,10 +46,15 @@
       var visible = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
       if (visible > bestArea) { bestArea = visible; best = vids[i]; }
     }
-    return best;
+    return best || vids[0] || null; // zero-size rects (odd layouts): still act on the first video
   }
 
+  var firing = false;
   function fireKey(key, code) {
+    firing = true;
+    try { fireKeyInner(key, code); } finally { firing = false; }
+  }
+  function fireKeyInner(key, code) {
     var kc = code === 'ArrowDown' ? 40 : 38;
     var types = ['keydown', 'keyup'];
     for (var i = 0; i < types.length; i++) {
@@ -133,6 +138,7 @@
     415: togglePlay, 19: togglePlay, 10252: togglePlay, // Play, Pause, Play/Pause
     412: function () { seek(-10); },  // Rewind
     417: function () { seek(10); },   // Fast forward
+    405: function () { location.reload(); }, // Yellow: reload
     403: function () { autoScroll = !autoScroll; toast('Auto-scroll ' + (autoScroll ? 'ON' : 'OFF')); }, // Red
     10009: function () { // Back: ALWAYS straight to the TizenBrew screen (first history entry), no step-by-step walking
       var before = location.href;
@@ -149,11 +155,12 @@
   };
 
   document.addEventListener('keydown', function (e) {
-    if (e.isTrusted === false) return; // our own synthetic ArrowUp/Down: never re-enter
+    if (firing) return; // our own synthetic ArrowUp/Down: never re-enter
     var fn = KEYMAP[e.keyCode];
     if (!fn) return;
     var tag = (e.target && e.target.tagName) || '';
     if (e.keyCode !== 10009) {
+      if (e.keyCode >= 37 && e.keyCode <= 40 && !currentVideo()) return; // no feed on this page: leave native focus navigation alone
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (e.target && e.target.isContentEditable)) return; // typing
       if (onLoginPage() && document.querySelector('a[href], button, input, [tabindex]')) return; // native focus navigation, only when something is focusable
       if (e.keyCode === 13 && (/^(BUTTON|A)$/.test(tag) || (e.target.getAttribute && (e.target.getAttribute('role') === 'button' || e.target.getAttribute('tabindex') !== null)))) return; // OK activates focused control
@@ -171,12 +178,12 @@
     }
   } catch (e) { /* not on a TV */ }
 
-  document.addEventListener('DOMContentLoaded', function () { toast('TikTok TV v1.3.1 ready'); });
+  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', function () { toast('TikTok TV v1.3.1 ready'); }); } else { toast('TikTok TV v1.3.1 ready'); }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', addStyle);
-  } else {
+  if (document.documentElement) {
     addStyle();
+  } else {
+    document.addEventListener('DOMContentLoaded', addStyle);
   }
 
   // ---- easy QR login: go straight to TikTok's QR login page when not signed in ----

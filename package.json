@@ -7,6 +7,6 @@
   "evaluateScriptOnDocumentStart": true,
   "appName": "TikTok",
   "websiteURL": "https://www.tiktok.com/foryou",
-  "keys": ["MediaPlayPause", "MediaPlay", "MediaPause", "MediaFastForward", "MediaRewind", "ColorF0Red", "ColorF1Green"],
+  "keys": ["MediaPlayPause", "MediaPlay", "MediaPause", "MediaFastForward", "MediaRewind", "ColorF0Red", "ColorF1Green", "ColorF2Yellow"],
   "license": "MIT"
 }
