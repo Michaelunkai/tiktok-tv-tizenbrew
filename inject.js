@@ -11,7 +11,8 @@
   // ---- sponsored items ----
   var css = '[data-e2e*="ad" i], [class*="Sponsored" i], [class*="AdBadge" i] { display: none !important; }' +
             '#tvtoast{position:fixed;top:24px;right:24px;z-index:2147483647;background:rgba(0,0,0,.8);color:#fff;' +
-            'font:600 26px sans-serif;padding:12px 20px;border-radius:12px;display:none}';
+            'font:600 26px sans-serif;padding:12px 20px;border-radius:12px;display:none}' +
+            'a:focus,button:focus,[role="button"]:focus,[tabindex]:focus,input:focus{outline:4px solid #25f4ee !important;outline-offset:2px}';
   function addStyle() {
     var s = document.createElement('style');
     s.textContent = css;
@@ -183,6 +184,51 @@
       location.href = 'https://www.tiktok.com/login/qrcode';
     }
   }, 1500);
+
+  // ---- popup killer: no mouse on a TV, so dismiss every modal/banner. Never accepts anything. ----
+  var POPUP_SEL = '[role="dialog"], [aria-modal="true"], [data-e2e*="modal" i], [data-e2e*="banner" i], ' +
+    '[data-e2e*="cookie" i], [class*="Modal" i], [class*="DivModal" i], [class*="Banner" i], ' +
+    '[class*="CookieBanner" i], [class*="DownloadApp" i], [class*="AppBanner" i], [class*="Overlay" i]';
+  var DECLINE_RE = /^\s*(not now|skip|decline|cancel|close|no thanks|no,? thanks|maybe later|dismiss|later|don'?t allow|deny|reject( all)?|got it|x|×)\s*$/i;
+  var NEVER_RE = /(allow|accept|agree|sync|connect contacts|find friends|enable|turn on|yes|continue|log ?in|sign ?up)/i;
+  var POPUP_HINT_RE = /(contact|friends|cookie|download|get the app|notification|sync|liked)/i;
+  function inQrArea(el) {
+    if (onLoginPage()) return true;
+    return !!(el.querySelector && el.querySelector('[data-e2e="qr-code"], canvas, [class*="qrcode" i], [class*="QRCode" i]'));
+  }
+  function visibleEl(el) {
+    return !!(el.offsetWidth || el.offsetHeight || (el.getClientRects && el.getClientRects().length));
+  }
+  function killPopups() {
+    if (onLoginPage()) return;
+    var list = document.querySelectorAll(POPUP_SEL);
+    for (var i = 0; i < list.length; i++) {
+      var el = list[i];
+      if (el.getAttribute('data-tvkilled') || el.id === 'tvtoast' || !visibleEl(el)) continue;
+      var role = el.getAttribute('role') === 'dialog' || el.getAttribute('aria-modal') === 'true';
+      var text = (el.textContent || '').slice(0, 400);
+      var cls = String(el.className || '') + ' ' + (el.getAttribute('data-e2e') || '');
+      // generic class matches (Overlay/Banner/Modal) must also look like a prompt, to spare the feed UI
+      if (!role && !POPUP_HINT_RE.test(text + ' ' + cls) && !/modal/i.test(cls)) continue;
+      if (inQrArea(el)) continue;
+      el.setAttribute('data-tvkilled', '1');
+      var btns = el.querySelectorAll('button, [role="button"], a, [aria-label]');
+      var clicked = false;
+      for (var j = 0; j < btns.length && !clicked; j++) {
+        var b = btns[j];
+        var label = (b.getAttribute('aria-label') || '') + '';
+        var bt = (b.textContent || '').replace(/^\s+|\s+$/g, '');
+        if (NEVER_RE.test(bt) || NEVER_RE.test(label)) continue;
+        if (DECLINE_RE.test(bt) || DECLINE_RE.test(label) || /close|dismiss/i.test(b.getAttribute('data-e2e') || '')) {
+          try { b.click(); clicked = true; } catch (e) { /* try next */ }
+        }
+      }
+      if (!clicked) { el.style.setProperty('display', 'none', 'important'); }
+      if (document.body) { document.body.style.setProperty('overflow', 'auto', 'important'); }
+      document.documentElement.style.setProperty('overflow', 'auto', 'important');
+    }
+  }
+  setInterval(function () { try { killPopups(); } catch (e) { /* never break the page */ } }, 500);
 
   // keep sound on and start playing if the TV browser blocks autoplay
   setInterval(function () {
