@@ -206,6 +206,7 @@
     415: togglePlay, 19: togglePlay, 10252: togglePlay, // Play, Pause, Play/Pause
     412: function () { seek(-10); },  // Rewind
     417: function () { seek(10); },   // Fast forward
+    404: function () { toast('Opening QR login...'); location.href = 'https://www.tiktok.com/login/qrcode'; }, // Green: QR login on demand
     405: function () { location.reload(); }, // Yellow: reload
     403: function () { autoScroll = !autoScroll; toast('Auto-scroll ' + (autoScroll ? 'ON' : 'OFF')); }, // Red
     10009: function () { // Back: ALWAYS straight to the TizenBrew screen (first history entry), no step-by-step walking
@@ -246,7 +247,7 @@
     }
   } catch (e) { /* not on a TV */ }
 
-  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', function () { toast('TikTok TV v1.3.1 ready'); }); } else { toast('TikTok TV v1.3.1 ready'); }
+  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', function () { toast('TikTok TV v1.3.2 ready'); }); } else { toast('TikTok TV v1.3.1 ready'); }
 
   if (document.documentElement) {
     addStyle();
