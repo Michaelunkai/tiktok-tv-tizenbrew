@@ -166,7 +166,12 @@
   // ---- easy QR login: go straight to TikTok's QR login page when not signed in ----
   function onLoginPage() { return /\/login/.test(location.pathname); }
   function loggedOut() {
-    return !!document.querySelector('[data-e2e="top-login-button"], [data-e2e="nav-login-button"], button[id*="login" i]');
+    if (document.querySelector('[data-e2e="top-login-button"], [data-e2e="nav-login-button"], button[id*="login" i]')) return true;
+    var bs = document.querySelectorAll('button, a[role="button"]');
+    for (var i = 0; i < bs.length; i++) {
+      if (/^\s*log ?in\s*$/i.test(bs[i].textContent || '')) return true;
+    }
+    return false;
   }
   var qrStyle = document.createElement('style');
   qrStyle.textContent =
@@ -196,9 +201,9 @@
   var POPUP_SEL = '[role="dialog"], [aria-modal="true"], [data-e2e*="modal" i], [data-e2e*="banner" i], ' +
     '[data-e2e*="cookie" i], [class*="Modal" i], [class*="DivModal" i], [class*="Banner" i], ' +
     '[class*="CookieBanner" i], [class*="DownloadApp" i], [class*="AppBanner" i], [class*="Overlay" i]';
-  var DECLINE_RE = /^\s*(not now|skip|decline|cancel|close|no thanks|no,? thanks|maybe later|dismiss|later|don'?t allow|deny|reject( all)?|got it|x|×)\s*$/i;
+  var DECLINE_RE = /^\s*(not now|skip|decline|cancel|close|no thanks|no,? thanks|maybe later|dismiss|later|don'?t allow|deny|reject( all)?|got it|x|×|continue without log ?in|(decline|reject).*)\s*$/i;
   var NEVER_RE = /(allow|accept|agree|sync|connect contacts|find friends|enable|turn on|yes|continue|log ?in|sign ?up)/i;
-  var POPUP_HINT_RE = /(contact|friends|cookie|download|get the app|notification|sync|liked)/i;
+  var POPUP_HINT_RE = /(contact|friends|cookie|download|get the app|notification|sync|liked|get more of what you love|without log ?in)/i;
   function inQrArea(el) {
     if (onLoginPage()) return true;
     return !!(el.querySelector && el.querySelector('[data-e2e="qr-code"], canvas, [class*="qrcode" i], [class*="QRCode" i]'));
