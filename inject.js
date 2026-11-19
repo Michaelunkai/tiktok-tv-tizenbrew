@@ -129,9 +129,17 @@
     412: function () { seek(-10); },  // Rewind
     417: function () { seek(10); },   // Fast forward
     403: function () { autoScroll = !autoScroll; toast('Auto-scroll ' + (autoScroll ? 'ON' : 'OFF')); }, // Red
-    10009: function () { // Back: history, else leave the app
-      if (history.length > 1) { history.back(); return; }
-      try { tizen.application.getCurrentApplication().exit(); } catch (e) { try { window.close(); } catch (e2) { /* nothing left to do */ } }
+    10009: function () { // Back: ALWAYS straight to the TizenBrew screen (first history entry), no step-by-step walking
+      var before = location.href;
+      var leave = function () {
+        try { tizen.application.getCurrentApplication().exit(); } catch (e) { try { window.close(); } catch (e2) { /* nothing left to do */ } }
+      };
+      if (history.length > 1) {
+        history.go(1 - history.length);
+        setTimeout(function () { if (location.href === before) leave(); }, 700); // still here: leave the app
+        return;
+      }
+      leave();
     }
   };
 
