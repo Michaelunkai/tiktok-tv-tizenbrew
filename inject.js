@@ -142,7 +142,7 @@
     if (e.keyCode !== 10009) {
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (e.target && e.target.isContentEditable)) return; // typing
       if (onLoginPage()) return; // native focus navigation on the QR/login page
-      if (e.keyCode === 13 && /^(BUTTON|A)$/.test(tag)) return; // OK activates focused control
+      if (e.keyCode === 13 && (/^(BUTTON|A)$/.test(tag) || e.target.getAttribute('role') === 'button' || e.target.hasAttribute('tabindex'))) return; // OK activates focused control
     }
     e.preventDefault();
     e.stopPropagation();
@@ -212,11 +212,11 @@
     for (var i = 0; i < list.length; i++) {
       var el = list[i];
       if (el.getAttribute('data-tvkilled') || el.id === 'tvtoast' || !visibleEl(el)) continue;
-      var role = el.getAttribute('role') === 'dialog' || el.getAttribute('aria-modal') === 'true';
       var text = (el.textContent || '').slice(0, 400);
       var cls = String(el.className || '') + ' ' + (el.getAttribute('data-e2e') || '');
       // generic class matches (Overlay/Banner/Modal) must also look like a prompt, to spare the feed UI
-      if (!role && !POPUP_HINT_RE.test(text + ' ' + cls) && !/modal/i.test(cls)) continue;
+      if (!POPUP_HINT_RE.test(text + ' ' + cls)) continue;
+      if (el.querySelector('video, [data-e2e*="comment" i], [data-e2e*="search" i], input, textarea')) continue;
       if (inQrArea(el)) continue;
       el.setAttribute('data-tvkilled', '1');
       var btns = el.querySelectorAll('button, [role="button"], a, [aria-label]');
@@ -235,7 +235,7 @@
       document.documentElement.style.setProperty('overflow', 'auto', 'important');
     }
   }
-  setInterval(function () { try { killPopups(); } catch (e) { /* never break the page */ } }, 500);
+  setInterval(function () { try { killPopups(); } catch (e) { /* never break the page */ } }, 1000);
 
   // keep sound on and start playing if the TV browser blocks autoplay
   setInterval(function () {
