@@ -38,15 +38,23 @@
   }
 
   // ---- helpers ----
+  var AS = { v: null, src: '', lastT: 0, lastWall: 0, wall: 0,
+             adv: false, advAt: 0, tries: 0, lastUserSeek: 0, mutedByUs: null };
+  var AS_FALLBACK_SEC = 20, AS_GRACE_SEC = 4, AS_RETRY_MS = 2500, AS_MAX_TRIES = 6;
+
   function currentVideo() {
     var vids = document.querySelectorAll('video');
-    var best = null, bestArea = 0, vh = window.innerHeight;
+    var best = null, bestArea = 0, vh = window.innerHeight || 1080, vw = window.innerWidth || 1920;
+    var playing = null;
     for (var i = 0; i < vids.length; i++) {
       var r = vids[i].getBoundingClientRect();
-      var visible = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
-      if (visible > bestArea) { bestArea = visible; best = vids[i]; }
+      var h = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
+      var w = (typeof r.right === 'number' && typeof r.left === 'number') ? Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0)) : vw;
+      var area = h * w;
+      if (area > bestArea) { bestArea = area; best = vids[i]; }
+      if (!playing && !vids[i].paused) { playing = vids[i]; }
     }
-    return best || vids[0] || null; // zero-size rects (odd layouts): still act on the first video
+    return best || playing || vids[0] || null; // zero-size rects (odd layouts): still act on the first video
   }
 
   var firing = false;
@@ -82,19 +90,41 @@
     try { var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (e) { /* blocked */ }
   }
 
-  function nextVideo() {
+  function scrollFeed(v) {
+    var el = v && v.parentElement, h = window.innerHeight || 1080;
+    while (el && el !== document.body && el !== document.documentElement) {
+      var oy = '';
+      try { oy = window.getComputedStyle(el).overflowY; } catch (e) { /* ignore */ }
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 10) {
+        el.scrollTop = el.scrollTop + h;
+        return;
+      }
+      el = el.parentElement;
+    }
+    window.scrollBy(0, h);
+  }
+
+  function nextVideo(method) {
+    var m = (typeof method === 'number') ? method % 3 : 0;
     var now = Date.now();
     if (now - lastAdvance < 1200) return;
     lastAdvance = now;
-    var btn = null; try { btn = document.querySelector('[data-e2e="arrow-right"], button[aria-label*="next" i]'); } catch (eSel) { /* old Chromium: no [attr i] */ }
-    if (btn) { btn.click(); return; }
-    fireKey('ArrowDown', 'ArrowDown');
     var v = currentVideo();
-    if (v) {
-      var c = closestEl(v, '[data-e2e="recommend-list-item-container"]') || v.parentElement;
-      var n = c && c.nextElementSibling;
-      if (n && n.scrollIntoView) n.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (m === 0) {
+      var btn = document.querySelector('[data-e2e="arrow-right"], button[aria-label*="next" i]');
+      if (btn) { btn.click(); return; }
+      m = 1;
     }
+    if (m === 1) {
+      fireKey('ArrowDown', 'ArrowDown');
+      if (v) {
+        var c = closestEl(v, '[data-e2e="recommend-list-item-container"]') || v.parentElement;
+        var n = c && c.nextElementSibling;
+        if (n && n.scrollIntoView) n.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+    scrollFeed(v);
   }
 
   function prevVideo() {
@@ -112,20 +142,61 @@
   function seek(delta) {
     var v = currentVideo();
     if (!v || !isFinite(v.duration)) return;
+    AS.lastUserSeek = Date.now();
     v.currentTime = Math.max(0, Math.min(v.duration - 0.2, v.currentTime + delta));
     toast((delta > 0 ? '+' : '') + delta + 's');
   }
 
   // ---- auto-scroll: videos loop, so watch the clock instead of the ended event ----
-  setInterval(function () {
-    if (!autoScroll) return;
+  function asReset(v, now) {
+    AS.v = v; AS.src = v ? (v.currentSrc || v.src || '') : '';
+    AS.lastT = v ? (v.currentTime || 0) : 0;
+    AS.lastWall = now; AS.wall = 0;
+    AS.adv = false; AS.tries = 0;
+  }
+
+  function asAdvance(now) {
+    AS.adv = true; AS.advAt = now;
+    nextVideo(AS.tries);
+  }
+
+  function asTick() {
+    var now = Date.now();
+    if (!autoScroll) { AS.v = null; return; }
     var v = currentVideo();
-    if (!v || v.paused || !isFinite(v.duration) || v.duration < 1) return;
-    if (v.currentTime >= v.duration - 0.35) nextVideo();
-  }, 250);
+    var src = v ? (v.currentSrc || v.src || '') : '';
+    if (v !== AS.v || src !== AS.src) { asReset(v, now); }
+    var dtw = Math.min(now - AS.lastWall, 2000) / 1000;
+    AS.lastWall = now;
+    if (!v) return;
+    try { if (v.loop) v.loop = false; } catch (e) { /* ignore */ }
+    var t = v.currentTime;
+    if (typeof t !== 'number' || t !== t) t = 0;
+    var d = v.duration;
+    if (typeof d !== 'number' || !isFinite(d) || d < 1) d = 0;
+    var dt = t - AS.lastT;
+    AS.lastT = t;
+    if (v.getAttribute('data-user-paused')) return;
+    AS.wall += dtw;
+
+    if (AS.adv) {
+      if (now - AS.advAt > AS_RETRY_MS) {
+        AS.tries++;
+        if (AS.tries > AS_MAX_TRIES) { asReset(v, now); return; }
+        asAdvance(now);
+      }
+      return;
+    }
+    var wrapped = d && dt < -d * 0.5 && (now - AS.lastUserSeek) > 1500;
+    var atEnd = d && !v.paused && t >= d - 0.35; // paused (user or blocked autoplay): only the wall timer may advance
+    var timeout = AS.wall >= (d ? d * 1.25 : AS_FALLBACK_SEC) + AS_GRACE_SEC;
+    if (wrapped || atEnd || timeout) asAdvance(now);
+  }
+  setInterval(function () { try { asTick(); } catch (e) { /* never break the page */ } }, 250);
 
   document.addEventListener('ended', function (e) {
-    if (autoScroll && e.target && e.target.tagName === 'VIDEO') nextVideo();
+    if (!autoScroll || AS.adv || !e.target || e.target.tagName !== 'VIDEO') return;
+    if (e.target === currentVideo()) { asAdvance(Date.now()); }
   }, true);
 
   // ---- remote control ----
@@ -266,9 +337,35 @@
   }
   setInterval(function () { try { killPopups(); } catch (e) { /* never break the page */ } }, 1000);
 
-  // keep sound on and start playing if the TV browser blocks autoplay
+  function mutedPlay(v) {
+    try {
+      v.muted = true; AS.mutedByUs = v;
+      var q = v.play(); if (q && q.catch) q.catch(function () {});
+    } catch (e) { /* blocked */ }
+    setTimeout(tryUnmute, 1500);
+  }
+
+  function forcePlay(v) {
+    var p = null;
+    try { p = v.play(); } catch (e) { mutedPlay(v); return; }
+    if (p && p.catch) p.catch(function () { mutedPlay(v); });
+  }
+
+  function tryUnmute() {
+    var v = AS.mutedByUs;
+    if (!v || !v.muted) return;
+    try { v.muted = false; } catch (e) { return; }
+    setTimeout(function () {
+      if (v.paused && !v.getAttribute('data-user-paused')) { mutedPlay(v); }
+    }, 400);
+  }
+  document.addEventListener('keydown', tryUnmute, true);
+
   setInterval(function () {
-    var v = currentVideo();
-    if (v && v.paused && !v.getAttribute('data-user-paused') && v.readyState > 2) { safePlay(v); }
-  }, 2000);
+    try {
+      var v = currentVideo();
+      if (v && v.paused && !v.getAttribute('data-user-paused')) { forcePlay(v); }
+    } catch (e) { /* never break the page */ }
+  }, 1500);
+
 })();
