@@ -142,7 +142,7 @@
     if (e.keyCode !== 10009) {
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (e.target && e.target.isContentEditable)) return; // typing
       if (onLoginPage()) return; // native focus navigation on the QR/login page
-      if (e.keyCode === 13 && (/^(BUTTON|A)$/.test(tag) || e.target.getAttribute('role') === 'button' || e.target.hasAttribute('tabindex'))) return; // OK activates focused control
+      if (e.keyCode === 13 && (/^(BUTTON|A)$/.test(tag) || (e.target.getAttribute && (e.target.getAttribute('role') === 'button' || e.target.getAttribute('tabindex') !== null)))) return; // OK activates focused control
     }
     e.preventDefault();
     e.stopPropagation();
