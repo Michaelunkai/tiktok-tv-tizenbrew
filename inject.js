@@ -133,6 +133,32 @@
     addStyle();
   }
 
+  // ---- easy QR login: go straight to TikTok's QR login page when not signed in ----
+  function onLoginPage() { return /\/login/.test(location.pathname); }
+  function loggedOut() {
+    return !!document.querySelector('[data-e2e="top-login-button"], [data-e2e="nav-login-button"], button[id*="login" i]');
+  }
+  var qrStyle = document.createElement('style');
+  qrStyle.textContent =
+    '[data-e2e="qr-code"], [class*="QRCode" i], [class*="qrcode" i] canvas, [class*="qrcode" i] img, canvas[width] ' +
+    '{ transform: scale(1.7); transform-origin: center top; margin: 80px auto; background: #fff; padding: 8px; }';
+  var qrChecks = 0;
+  var qrTimer = setInterval(function () {
+    qrChecks++;
+    if (qrChecks > 40) { clearInterval(qrTimer); return; }
+    if (onLoginPage()) {
+      if (!qrStyle.parentNode) (document.head || document.documentElement).appendChild(qrStyle);
+      var qrOpt = document.querySelector('[data-e2e="channel-item"][href*="qrcode"], a[href*="/login/qrcode"], [data-e2e="login-qr"]');
+      if (qrOpt && !/qrcode/.test(location.pathname)) { qrOpt.click(); }
+      if (!window.__qrToast) { window.__qrToast = true; toast('Scan the QR with the TikTok app on your phone: Profile, then the scan icon'); }
+      return;
+    }
+    if (loggedOut() && !sessionStorage.getItem('qrRedirected')) {
+      sessionStorage.setItem('qrRedirected', '1');
+      location.href = 'https://www.tiktok.com/login/qrcode';
+    }
+  }, 1500);
+
   // keep sound on and start playing if the TV browser blocks autoplay
   setInterval(function () {
     var v = currentVideo();
