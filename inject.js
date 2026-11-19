@@ -5,6 +5,11 @@
 (function () {
   'use strict';
 
+  // TizenBrew evaluates this on every execution context (iframes, reloads): run once, top frame only
+  try { if (window.top && window.top !== window) return; } catch (eTop) { return; }
+  if (window.__tvInject) return;
+  window.__tvInject = true;
+
   var autoScroll = true;
   var lastAdvance = 0;
 
@@ -144,17 +149,18 @@
   };
 
   document.addEventListener('keydown', function (e) {
+    if (e.isTrusted === false) return; // our own synthetic ArrowUp/Down: never re-enter
     var fn = KEYMAP[e.keyCode];
     if (!fn) return;
     var tag = (e.target && e.target.tagName) || '';
     if (e.keyCode !== 10009) {
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (e.target && e.target.isContentEditable)) return; // typing
-      if (onLoginPage()) return; // native focus navigation on the QR/login page
+      if (onLoginPage() && document.querySelector('a[href], button, input, [tabindex]')) return; // native focus navigation, only when something is focusable
       if (e.keyCode === 13 && (/^(BUTTON|A)$/.test(tag) || (e.target.getAttribute && (e.target.getAttribute('role') === 'button' || e.target.getAttribute('tabindex') !== null)))) return; // OK activates focused control
     }
+    try { fn(); } catch (eKey) { return; } // never swallow a key we failed to act on
     e.preventDefault();
     e.stopPropagation();
-    fn();
   }, true);
 
   try {
@@ -164,6 +170,8 @@
       });
     }
   } catch (e) { /* not on a TV */ }
+
+  document.addEventListener('DOMContentLoaded', function () { toast('TikTok TV v1.3.1 ready'); });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', addStyle);
@@ -186,7 +194,7 @@
     '[data-e2e="qr-code"], [class*="QRCode" i], [class*="qrcode" i] canvas, [class*="qrcode" i] img, canvas[width] ' +
     '{ transform: scale(1.7); transform-origin: center top; margin: 80px auto; background: #fff; padding: 8px; }';
   var qrChecks = 0;
-  var qrTimer = setInterval(function () {
+  var qrTimer = setInterval(function () { try {
     qrChecks++;
     if (qrChecks > 40) { clearInterval(qrTimer); return; }
     if (onLoginPage()) {
@@ -203,7 +211,7 @@
       try { sessionStorage.setItem('qrRedirected', '1'); } catch (e) { /* storage blocked */ }
       location.href = 'https://www.tiktok.com/login/qrcode';
     }
-  }, 1500);
+  } catch (eQr) { /* never break the page */ } }, 1500);
 
   // ---- popup killer: no mouse on a TV, so dismiss every modal/banner. Never accepts anything. ----
   var POPUP_SEL = '[role="dialog"], [aria-modal="true"], [data-e2e*="modal" i], [data-e2e*="banner" i], ' +
