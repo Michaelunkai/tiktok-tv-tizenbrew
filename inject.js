@@ -105,24 +105,21 @@
   }
 
   function nextVideo(method) {
-    var m = (typeof method === 'number') ? method % 3 : 0;
+    var m = (typeof method === 'number') ? method % 4 : 0;
     var now = Date.now();
     if (now - lastAdvance < 1200) return;
     lastAdvance = now;
     var v = currentVideo();
     if (m === 0) {
-      var btn = document.querySelector('[data-e2e="arrow-right"], button[aria-label*="next" i]');
+      var btn = null; try { btn = document.querySelector('[data-e2e="arrow-right"], button[aria-label*="next" i]'); } catch (eSel) { /* old Chromium: no [attr i] */ }
       if (btn) { btn.click(); return; }
       m = 1;
     }
-    if (m === 1) {
-      fireKey('ArrowDown', 'ArrowDown');
-      if (v) {
-        var c = closestEl(v, '[data-e2e="recommend-list-item-container"]') || v.parentElement;
-        var n = c && c.nextElementSibling;
-        if (n && n.scrollIntoView) n.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      return;
+    if (m === 1) { fireKey('ArrowDown', 'ArrowDown'); return; } // one mechanism per attempt: key AND scroll together double-advance
+    if (m === 2) {
+      var c = v && (closestEl(v, '[data-e2e="recommend-list-item-container"]') || v.parentElement);
+      var n = c && c.nextElementSibling;
+      if (n && n.scrollIntoView) { n.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     }
     scrollFeed(v);
   }
@@ -342,7 +339,6 @@
       v.muted = true; AS.mutedByUs = v;
       var q = v.play(); if (q && q.catch) q.catch(function () {});
     } catch (e) { /* blocked */ }
-    setTimeout(tryUnmute, 1500);
   }
 
   function forcePlay(v) {
