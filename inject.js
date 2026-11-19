@@ -225,7 +225,7 @@
         var b = btns[j];
         var label = (b.getAttribute('aria-label') || '') + '';
         var bt = (b.textContent || '').replace(/^\s+|\s+$/g, '');
-        if (NEVER_RE.test(bt) || NEVER_RE.test(label)) continue;
+        if ((NEVER_RE.test(bt) || NEVER_RE.test(label)) && !DECLINE_RE.test(bt) && !DECLINE_RE.test(label)) continue;
         if (DECLINE_RE.test(bt) || DECLINE_RE.test(label) || /close|dismiss/i.test(b.getAttribute('data-e2e') || '')) {
           try { b.click(); clicked = true; } catch (e) { /* try next */ }
         }
